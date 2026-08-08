@@ -278,6 +278,9 @@ create table invoices (
   tenant_id         uuid not null references tenants(id) on delete cascade,
   lease_id          uuid references leases(id),
   invoice_type_id   uuid not null references invoice_types(id),
+  kind              invoice_kind not null,   -- denormalized copy of invoice_types.kind, set by trigger below;
+                                              -- exists so the partial unique index doesn't need a subquery
+                                              -- (Postgres index predicates can't contain subqueries)
   invoice_status_id uuid not null references invoice_statuses(id),
   linked_invoice_id uuid references invoices(id),   -- e.g. a fine linked to the rent invoice it penalizes
   period_start      date,
@@ -287,6 +290,19 @@ create table invoices (
   due_date          date not null,
   created_at        timestamptz not null default now()
 );
+
+-- Keep invoices.kind in sync with invoice_types.kind automatically so
+-- callers never have to set it manually and it can't drift out of sync.
+create or replace function fn_set_invoice_kind() returns trigger as $$
+begin
+  select kind into new.kind from invoice_types where id = new.invoice_type_id;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_set_invoice_kind
+  before insert or update of invoice_type_id on invoices
+  for each row execute function fn_set_invoice_kind();
 
 create table invoice_line_items (
   id              uuid primary key default gen_random_uuid(),
@@ -320,12 +336,13 @@ create table ledger_entries (
   created_at      timestamptz not null default now()
 );
 
--- Enforce: exactly one non-void RENT invoice per tenant per billing period.
--- Fines are a separate invoice_type and are excluded via the join to
--- invoice_types.kind = 'rent'.
+-- Enforce: exactly one RENT invoice per tenant per billing period. Postgres
+-- index predicates can't contain a subquery, so this filters on the plain
+-- invoices.kind column (kept in sync with invoice_types.kind by the trigger
+-- above) rather than joining out to invoice_types.
 create unique index uq_one_rent_invoice_per_tenant_period
   on invoices (tenant_id, period_start)
-  where invoice_type_id in (select id from invoice_types where kind = 'rent');
+  where kind = 'rent';
 -- NOTE: if fine-stacking-per-cycle is resolved as "not allowed" (open decision),
 -- add a similar partial unique index scoped to kind = 'fine'.
 
@@ -443,7 +460,28 @@ create index idx_ledger_tenant           on ledger_entries(tenant_id, created_at
 create index idx_messages_tenant         on messages_log(tenant_id, created_at);
 
 -- ============================================================================
--- 10. ROW LEVEL SECURITY (owner-scoped multi-tenancy)
+-- 10. SUPER ADMIN
+-- ============================================================================
+-- Defined here, ahead of the RLS section below, because those policies call
+-- is_super_admin().
+
+create table super_admins (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  full_name   text,
+  created_at  timestamptz not null default now()
+);
+
+-- security definer so it can be called from RLS policies on any table
+create or replace function is_super_admin() returns boolean as $$
+  select exists (select 1 from super_admins where id = auth.uid());
+$$ language sql stable security definer;
+
+alter table super_admins enable row level security;
+create policy admin_only_super_admins on super_admins
+  using (is_super_admin());
+
+-- ============================================================================
+-- 11. ROW LEVEL SECURITY (owner-scoped multi-tenancy)
 -- ============================================================================
 
 alter table properties           enable row level security;
@@ -464,7 +502,7 @@ alter table documents            enable row level security;
 
 -- Repeat this pattern for every owner-scoped table above (shown once here;
 -- apply identically to the rest — omitted for brevity). is_super_admin()
--- is defined in section 11 below and lets the super admin panel read/write
+-- is defined in section 10 above and lets the super admin panel read/write
 -- across every owner's data for monitoring.
 create policy owner_isolation_properties on properties
   using (owner_id = auth.uid() or is_super_admin())
@@ -493,25 +531,6 @@ create policy owner_isolation_payments on payments
 alter table owners enable row level security;
 create policy owner_self_or_admin on owners
   using (id = auth.uid() or is_super_admin());
-
--- ============================================================================
--- 11. SUPER ADMIN
--- ============================================================================
-
-create table super_admins (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  full_name   text,
-  created_at  timestamptz not null default now()
-);
-
--- security definer so it can be called from RLS policies on any table
-create or replace function is_super_admin() returns boolean as $$
-  select exists (select 1 from super_admins where id = auth.uid());
-$$ language sql stable security definer;
-
-alter table super_admins enable row level security;
-create policy admin_only_super_admins on super_admins
-  using (is_super_admin());
 
 -- ============================================================================
 -- 12. SUBSCRIPTION / TRIAL BILLING
