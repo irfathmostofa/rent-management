@@ -8,9 +8,7 @@ import { fetchPropertyDetail } from "../lib/publicDirectory";
 
 function facilityNames(list) {
   if (!Array.isArray(list)) return [];
-  return list
-    .map((f) => (typeof f === "string" ? f : f?.name))
-    .filter(Boolean);
+  return list.map((f) => (typeof f === "string" ? f : f?.name)).filter(Boolean);
 }
 
 // Normalize a phone number for the wa.me link (BD numbers -> 880...).
@@ -88,11 +86,17 @@ function Gallery({ images, name }) {
               type="button"
               onClick={() => setActive(i)}
               className={`overflow-hidden rounded-lg border-2 transition ${
-                i === active ? "border-indigo-500" : "border-transparent opacity-70 hover:opacity-100"
+                i === active
+                  ? "border-indigo-500"
+                  : "border-transparent opacity-70 hover:opacity-100"
               }`}
               aria-label={`${t("public.image")} ${i + 1}`}
             >
-              <img src={img} alt="" className="aspect-video w-full object-cover" />
+              <img
+                src={img}
+                alt=""
+                className="aspect-video w-full object-cover"
+              />
             </button>
           ))}
         </div>
@@ -132,7 +136,11 @@ function UnitCard({ unit, t, ownerPhone, propertyName }) {
             )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-            {unit.floor != null && <span>{t("public.floor")} {unit.floor}</span>}
+            {unit.floor != null && (
+              <span>
+                {t("public.floor")} {unit.floor}
+              </span>
+            )}
             {unit.dimension && <span>{unit.dimension}</span>}
             {hasSeats && (
               <span>
@@ -154,13 +162,21 @@ function UnitCard({ unit, t, ownerPhone, propertyName }) {
             </div>
           )}
         </div>
-        <Icon name="chevronDown" size={18} className={`text-slate-400 transition ${open ? "rotate-180" : ""}`} />
+        <Icon
+          name="chevronDown"
+          size={18}
+          className={`text-slate-400 transition ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
         <div className="border-t border-slate-100 p-4">
           {unit.description
-            ? unit.description && <p className="mb-3 text-sm text-slate-600">{unit.description}</p>
+            ? unit.description && (
+                <p className="mb-3 text-sm text-slate-600">
+                  {unit.description}
+                </p>
+              )
             : null}
           {facilityNames(unit.facilities).length > 0 && (
             <div className="mb-3">
@@ -200,9 +216,13 @@ function UnitCard({ unit, t, ownerPhone, propertyName }) {
             </div>
           )}
 
-          {facilityNames(unit.facilities).length === 0 && !hasSeats && !unit.description && (
-            <p className="text-sm text-slate-400">{t("public.noUnitDetails")}</p>
-          )}
+          {facilityNames(unit.facilities).length === 0 &&
+            !hasSeats &&
+            !unit.description && (
+              <p className="text-sm text-slate-400">
+                {t("public.noUnitDetails")}
+              </p>
+            )}
         </div>
       )}
 
@@ -263,7 +283,9 @@ export default function PublicPropertyDetailPage() {
           <div className="text-3xl font-extrabold text-slate-800">
             {t("public.notFound")}
           </div>
-          <p className="mt-2 text-sm text-slate-500">{error || t("public.notFoundBody")}</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {error || t("public.notFoundBody")}
+          </p>
           <Link
             to="/"
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-500"
@@ -322,13 +344,19 @@ export default function PublicPropertyDetailPage() {
 
           {location && (
             <p className="flex items-start gap-2 text-sm text-slate-600">
-              <Icon name="mapPin" size={18} className="mt-0.5 shrink-0 text-slate-400" />
+              <Icon
+                name="mapPin"
+                size={18}
+                className="mt-0.5 shrink-0 text-slate-400"
+              />
               {location}
             </p>
           )}
 
           {detail.description && (
-            <p className="text-sm leading-relaxed text-slate-600">{detail.description}</p>
+            <p className="text-sm leading-relaxed text-slate-600">
+              {detail.description}
+            </p>
           )}
 
           {facilityNames(detail.facilities).length > 0 && (
@@ -358,13 +386,13 @@ export default function PublicPropertyDetailPage() {
                 {detail.owner_phone}
               </a>
             )}
-            <Link
+            {/* <Link
               to="/feedback"
               className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-500"
             >
               <Icon name="chat" size={16} />
               {t("public.contactOwner")}
-            </Link>
+            </Link> */}
           </div>
         </div>
       </div>

@@ -60,9 +60,7 @@ function PropertyCard({ p }) {
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-extrabold text-slate-900">
-            {p.name}
-          </h3>
+          <h3 className="text-base font-extrabold text-slate-900">{p.name}</h3>
         </div>
         <p className="flex items-center gap-1.5 text-sm text-slate-500">
           <Icon name="mapPin" size={15} />
@@ -236,8 +234,12 @@ export default function PublicDirectoryPage() {
           to="/admin/login"
           className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 shadow transition hover:bg-indigo-50"
         >
-          <Icon name="arrowLeft" size={16} className="rotate-180" />
-          {t("public.becomeOwner")}
+          <Icon
+            name="arrowLeft"
+            size={16}
+            className="rotate-180  text-indigo-700"
+          />
+          <p className=" text-indigo-700">{t("public.becomeOwner")}</p>
         </Link>
       </section>
 
@@ -251,7 +253,9 @@ export default function PublicDirectoryPage() {
             type="number"
             min={0}
             value={filters.minPrice}
-            onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+            onChange={(e) =>
+              setFilters({ ...filters, minPrice: e.target.value })
+            }
             placeholder="0"
             className="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
@@ -264,7 +268,9 @@ export default function PublicDirectoryPage() {
             type="number"
             min={0}
             value={filters.maxPrice}
-            onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+            onChange={(e) =>
+              setFilters({ ...filters, maxPrice: e.target.value })
+            }
             placeholder={t("public.noLimit")}
             className="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
@@ -319,8 +325,8 @@ export default function PublicDirectoryPage() {
           to="/feedback"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
         >
-          <Icon name="chat" size={16} />
-          {t("public.sendFeedback")}
+          <Icon name="chat" size={16} className="text-white" />
+          <p className="text-white">{t("public.sendFeedback")}</p>
         </Link>
       </div>
     </PublicShell>
