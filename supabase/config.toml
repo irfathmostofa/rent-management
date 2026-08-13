@@ -1,0 +1,29 @@
+# Supabase project configuration. Copy to your own Supabase project.
+[project]
+project_id = "rently"
+org_id = "your-org-id"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "auth"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://*.monkeycode-ai.live"]
+
+[auth.email]
+enable_signup = true
+
+[realtime]
+enabled = true
