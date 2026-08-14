@@ -4078,6 +4078,16 @@ on conflict (name) where owner_id is null do nothing;
 -- ----------------------------------------------------------------------------
 -- 1. Publication approval columns on properties
 -- ----------------------------------------------------------------------------
+CREATE TABLE visitors (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT,
+  phone TEXT,
+  visited_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add indexes for better performance
+CREATE INDEX idx_visitors_visited_at ON visitors(visited_at DESC);
 
 alter table public.properties
   add column if not exists publication_status text not null default 'private'

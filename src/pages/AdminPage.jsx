@@ -29,9 +29,12 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [grantOpen, setGrantOpen] = useState(false);
   const [grantUserId, setGrantUserId] = useState("");
+  const [visitors, setVisitors] = useState([]);
+  const [loadingVisitors, setLoadingVisitors] = useState(false);
 
   const ownersPagination = usePagination(owners ?? [], 25);
   const auditPagination = usePagination(audit.logs ?? [], 25);
+  const visitorsPagination = usePagination(visitors ?? [], 25);
 
   const loadOwners = async () => {
     setLoadingOwners(true);
@@ -42,6 +45,36 @@ export default function AdminPage() {
       toast.error(err.message);
     } finally {
       setLoadingOwners(false);
+    }
+  };
+
+  const loadVisitors = async () => {
+    setLoadingVisitors(true);
+    try {
+      console.log("Loading visitors from Supabase...");
+
+      const { data, error } = await supabase
+        .from("visitors")
+        .select("*")
+        .order("visited_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching visitors:", error);
+        throw error;
+      }
+
+      console.log("Visitors data:", data);
+      setVisitors(data ?? []);
+
+      if (data && data.length > 0) {
+        toast.success(`${data.length} visitors loaded`);
+      }
+    } catch (err) {
+      console.error("Error in loadVisitors:", err);
+      toast.error(err.message || "Failed to load visitors");
+      setVisitors([]);
+    } finally {
+      setLoadingVisitors(false);
     }
   };
 
@@ -74,7 +107,7 @@ export default function AdminPage() {
         .from("super_admins")
         .insert({ user_id: grantUserId });
       if (error) throw error;
-      toast.success(t("admin.granted"));
+      toast.success("Super admin granted");
       setGrantOpen(false);
       setGrantUserId("");
     } catch (err) {
@@ -93,9 +126,7 @@ export default function AdminPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">{t("admin.title")}</h1>
-          <div className="page-sub">
-            {t("admin.subtitle")}
-          </div>
+          <div className="page-sub">{t("admin.subtitle")}</div>
         </div>
         <div className="row">
           <Button variant="secondary" size="sm" onClick={loadOwners}>
@@ -132,6 +163,15 @@ export default function AdminPage() {
         >
           {t("admin.tabFeedback")}
         </button>
+        <button
+          className={`tab${tab === "visitors" ? " active" : ""}`}
+          onClick={() => {
+            setTab("visitors");
+            loadVisitors();
+          }}
+        >
+          Visitors
+        </button>
       </div>
 
       {tab === "owners" && (
@@ -141,7 +181,9 @@ export default function AdminPage() {
               icon="shield"
               title={t("admin.loadOwners")}
               body={t("admin.loadOwnersBody")}
-              action={<Button onClick={loadOwners}>{t("admin.loadOwners")}</Button>}
+              action={
+                <Button onClick={loadOwners}>{t("admin.loadOwners")}</Button>
+              }
             />
           )}
 
@@ -191,7 +233,7 @@ export default function AdminPage() {
                           value={o.has_access ? "active" : "expired"}
                           tone={o.has_access ? "green" : "red"}
                         >
-                          {o.has_access ? t("admin.granted") : t("admin.blocked")}
+                          {o.has_access ? "Active" : "Blocked"}
                         </Badge>
                       </td>
                       <td>
@@ -200,7 +242,7 @@ export default function AdminPage() {
                           size="sm"
                           onClick={() => openOwner(o.owner_id)}
                         >
-                          {t("admin.inspect")}
+                          Inspect
                         </Button>
                       </td>
                     </tr>
@@ -210,8 +252,8 @@ export default function AdminPage() {
               {owners.length === 0 ? (
                 <EmptyState
                   icon="shield"
-                  title={t("admin.noOwners")}
-                  body={t("admin.noOwnersBody")}
+                  title="No owners found"
+                  body="There are no owners in the system yet."
                 />
               ) : (
                 <Pagination
@@ -292,8 +334,8 @@ export default function AdminPage() {
           {(audit.logs ?? []).length === 0 ? (
             <EmptyState
               icon="fileText"
-              title={t("admin.noActivity")}
-              body={t("admin.noActivityBody")}
+              title="No activity"
+              body="No audit logs available yet."
             />
           ) : (
             <Pagination
@@ -311,8 +353,12 @@ export default function AdminPage() {
         <>
           <div className="card" style={{ maxWidth: 720 }}>
             <div className="card-header">
-              <div className="card-title">{t("admin.publicationApprovalsTitle")}</div>
-              <span className="tiny muted">{t("admin.publicationApprovalsSub")}</span>
+              <div className="card-title">
+                {t("admin.publicationApprovalsTitle")}
+              </div>
+              <span className="tiny muted">
+                {t("admin.publicationApprovalsSub")}
+              </span>
             </div>
             <DirectoryApprovals />
           </div>
@@ -336,12 +382,82 @@ export default function AdminPage() {
         </div>
       )}
 
+      {tab === "visitors" && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Public Directory Visitors</div>
+            <span className="tiny muted">
+              People who accessed the public directory
+            </span>
+            <div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+              <Button variant="secondary" size="sm" onClick={loadVisitors}>
+                <Icon name="refresh" size={14} /> Refresh
+              </Button>
+            </div>
+          </div>
+          {loadingVisitors ? (
+            <div style={{ padding: "40px", textAlign: "center" }}>
+              <Spinner />
+            </div>
+          ) : (
+            <>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Phone</th>
+                      <th>Visited At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visitorsPagination.pageItems.length > 0 ? (
+                      visitorsPagination.pageItems.map((visitor) => (
+                        <tr key={visitor.id}>
+                          <td className="bold">{visitor.name || "—"}</td>
+                          <td className="mono">{visitor.phone || "—"}</td>
+                          <td className="small muted">
+                            {formatDateTime(visitor.visited_at)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="4"
+                          style={{ textAlign: "center", padding: "40px" }}
+                        >
+                          <EmptyState
+                            icon="users"
+                            title="No visitors yet"
+                            body="Visitors will appear here when they access the public directory"
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {visitors.length > 0 && (
+                <Pagination
+                  page={visitorsPagination.page}
+                  totalPages={visitorsPagination.totalPages}
+                  totalItems={visitorsPagination.totalItems}
+                  pageSize={visitorsPagination.pageSize}
+                  onChange={visitorsPagination.setPage}
+                />
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Owner inspect modal */}
       {selected && (
         <Modal
           open
           onClose={() => setSelected(null)}
-          title={snapshot?.owner?.business_name || t("admin.owner")}
+          title={snapshot?.owner?.business_name || "Owner"}
         >
           {!snapshot ? (
             <Spinner />
@@ -355,30 +471,33 @@ export default function AdminPage() {
                   marginBottom: 14,
                 }}
               >
-                <MiniStat label={t("admin.props")} value={snapshot.counts?.properties} />
-                <MiniStat label={t("admin.units")} value={snapshot.counts?.units} />
-                <MiniStat label={t("admin.tenants")} value={snapshot.counts?.tenants} />
-                <MiniStat label={t("admin.invoices")} value={snapshot.counts?.invoices} />
-                <MiniStat label={t("admin.payments")} value={snapshot.counts?.payments} />
+                <MiniStat
+                  label="Properties"
+                  value={snapshot.counts?.properties}
+                />
+                <MiniStat label="Units" value={snapshot.counts?.units} />
+                <MiniStat label="Tenants" value={snapshot.counts?.tenants} />
+                <MiniStat label="Invoices" value={snapshot.counts?.invoices} />
+                <MiniStat label="Payments" value={snapshot.counts?.payments} />
               </div>
 
               <div className="row-between mb-2">
-                <span className="muted small">{t("admin.subscription")}</span>
+                <span className="muted small">Subscription</span>
                 <Badge value={snapshot.subscription?.status} />
               </div>
               <div className="row-between mb-2">
-                <span className="muted small">{t("admin.outstanding")}</span>
+                <span className="muted small">Outstanding</span>
                 <span className="bold mono">{money(snapshot.outstanding)}</span>
               </div>
               <div className="row-between mb-2">
-                <span className="muted small">{t("admin.trialEnds")}</span>
+                <span className="muted small">Trial Ends</span>
                 <span className="small">
                   {formatDate(snapshot.subscription?.trial_ends_at)}
                 </span>
               </div>
 
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
-                <Field label={t("admin.monthlyAmount")}>
+                <Field label="Monthly Amount">
                   <Input
                     type="number"
                     min={0}
@@ -408,7 +527,7 @@ export default function AdminPage() {
                     )
                   }
                 >
-                  {t("admin.activatePlan")}
+                  Activate Plan
                 </Button>
                 <Button
                   variant="secondary"
@@ -428,7 +547,7 @@ export default function AdminPage() {
                     )
                   }
                 >
-                  {t("admin.recordPayment")}
+                  Record Payment
                 </Button>
                 <Select
                   defaultValue=""
@@ -442,18 +561,18 @@ export default function AdminPage() {
                     ).then(() => (e.target.value = ""))
                   }
                 >
-                  <option value="">{t("admin.setStatus")}</option>
-                  <option value="active">{t("admin.active")}</option>
-                  <option value="past_due">{t("admin.pastDue")}</option>
-                  <option value="cancelled">{t("admin.cancelled")}</option>
-                  <option value="expired">{t("admin.expired")}</option>
-                  <option value="trial">{t("admin.trial")}</option>
+                  <option value="">Set Status</option>
+                  <option value="active">Active</option>
+                  <option value="past_due">Past Due</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="expired">Expired</option>
+                  <option value="trial">Trial</option>
                 </Select>
               </div>
 
               {snapshot.recent_audit && snapshot.recent_audit.length > 0 && (
                 <>
-                  <div className="bold small mt-3 mb-2">{t("admin.recentActivity")}</div>
+                  <div className="bold small mt-3 mb-2">Recent Activity</div>
                   {snapshot.recent_audit.map((a, i) => (
                     <div
                       key={i}
@@ -480,12 +599,12 @@ export default function AdminPage() {
       <Modal
         open={grantOpen}
         onClose={() => setGrantOpen(false)}
-        title={t("admin.grantSuperAdmin")}
+        title="Grant Super Admin"
       >
         <form onSubmit={grantSuperAdmin}>
           <Field
-            label={t("admin.userId")}
-            hint={t("admin.userIdHint")}
+            label="User ID"
+            hint="Enter the UUID of the user to grant super admin access"
           >
             <Input
               required
@@ -500,10 +619,10 @@ export default function AdminPage() {
               variant="secondary"
               onClick={() => setGrantOpen(false)}
             >
-              {t("common.cancel")}
+              Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? t("admin.granting") : t("admin.grantAccess")}
+              {saving ? "Granting..." : "Grant Access"}
             </Button>
           </div>
         </form>

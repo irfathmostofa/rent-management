@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { validateGate } from "../../lib/publicDirectory";
 import Icon from "../ui/Icon";
+import { supabase } from "../../lib/supabase";
 
 // Super-admin-controlled gate: the visitor must provide a valid name and/or
 // phone number before browsing the public directory.
@@ -15,7 +16,24 @@ export default function GateModal({
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const submit = (e) => {
+  // Save visitor to Supabase
+  const saveVisitor = async (visitorData) => {
+    try {
+      const { error } = await supabase.from("visitors").insert([
+        {
+          name: visitorData.name,
+          phone: visitorData.phone,
+          visited_at: visitorData.at,
+        },
+      ]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving visitor:", error);
+    }
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
     const errs = validateGate(form, { nameRequired, phoneRequired });
     if (Object.keys(errs).length > 0) {
@@ -23,11 +41,18 @@ export default function GateModal({
       return;
     }
     setSaving(true);
-    onApproved({
+
+    const visitorData = {
       name: form.name.trim(),
       phone: form.phone.trim(),
       at: new Date().toISOString(),
-    });
+    };
+
+    // Save to Supabase
+    await saveVisitor(visitorData);
+
+    // Call the onApproved callback
+    onApproved(visitorData);
     setSaving(false);
   };
 
@@ -55,9 +80,7 @@ export default function GateModal({
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) =>
-                  setForm({ ...form, name: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder={t("public.namePlaceholder")}
                 className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 ${
                   errors.name
