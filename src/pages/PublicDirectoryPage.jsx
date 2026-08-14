@@ -137,6 +137,7 @@ export default function PublicDirectoryPage() {
     maxPrice: "",
     gender: "all",
   });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -171,6 +172,17 @@ export default function PublicDirectoryPage() {
   }, [allowFetch, filters.minPrice, filters.maxPrice, filters.gender]);
 
   const resultCount = useMemo(() => listings?.length ?? 0, [listings]);
+
+  const handleClearFilters = () => {
+    setFilters({
+      minPrice: "",
+      maxPrice: "",
+      gender: "all",
+    });
+  };
+
+  const hasActiveFilters =
+    filters.minPrice || filters.maxPrice || filters.gender !== "all";
 
   if (error) {
     return (
@@ -243,58 +255,174 @@ export default function PublicDirectoryPage() {
         </Link>
       </section>
 
-      {/* Filters */}
-      <section className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t("public.minPrice")}
-          </label>
-          <input
-            type="number"
-            min={0}
-            value={filters.minPrice}
-            onChange={(e) =>
-              setFilters({ ...filters, minPrice: e.target.value })
-            }
-            placeholder="0"
-            className="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-          />
+      {/* Professional Filter Section */}
+      <section className="mb-6">
+        {/* Filter Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow-md border border-slate-200"
+            >
+              <Icon name="filter" size={16} />
+              {t("public.filters")}
+              {hasActiveFilters && (
+                <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                  {
+                    Object.values(filters).filter((v) => v && v !== "all")
+                      .length
+                  }
+                </span>
+              )}
+            </button>
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="text-sm font-medium text-slate-500 transition hover:text-slate-700 hover:underline"
+              >
+                {t("public.clearFilters")}
+              </button>
+            )}
+          </div>
+          <div className="text-sm font-semibold text-slate-500">
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
+                {t("public.loading")}
+              </span>
+            ) : (
+              t("public.results", { count: resultCount })
+            )}
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t("public.maxPrice")}
-          </label>
-          <input
-            type="number"
-            min={0}
-            value={filters.maxPrice}
-            onChange={(e) =>
-              setFilters({ ...filters, maxPrice: e.target.value })
-            }
-            placeholder={t("public.noLimit")}
-            className="w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t("public.gender")}
-          </label>
-          <select
-            value={filters.gender}
-            onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-          >
-            <option value="all">{t("public.allGenders")}</option>
-            <option value="male">{t("gender.male")}</option>
-            <option value="female">{t("gender.female")}</option>
-            <option value="both">{t("gender.both")}</option>
-          </select>
-        </div>
-        <div className="ml-auto text-sm font-semibold text-slate-500">
-          {loading
-            ? t("public.loading")
-            : t("public.results", { count: resultCount })}
-        </div>
+
+        {/* Filter Body */}
+        {isFilterOpen && (
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Min Price */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <Icon name="dollar" size={12} className="inline mr-1" />
+                  {t("public.minPrice")}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minPrice: e.target.value })
+                    }
+                    placeholder="0"
+                    className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+              </div>
+
+              {/* Max Price */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <Icon name="dollar" size={12} className="inline mr-1" />
+                  {t("public.maxPrice")}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, maxPrice: e.target.value })
+                    }
+                    placeholder={t("public.noLimit")}
+                    className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <Icon name="user" size={12} className="inline mr-1" />
+                  {t("public.gender")}
+                </label>
+                <select
+                  value={filters.gender}
+                  onChange={(e) =>
+                    setFilters({ ...filters, gender: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="all">{t("public.allGenders")}</option>
+                  <option value="male">{t("gender.male")}</option>
+                  <option value="female">{t("gender.female")}</option>
+                  <option value="both">{t("gender.both")}</option>
+                </select>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={handleClearFilters}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:border-slate-400"
+                >
+                  {t("public.clear")}
+                </button>
+                <button
+                  onClick={() => setIsFilterOpen(false)}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-500"
+                >
+                  {t("public.apply")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Filters Tags */}
+        {hasActiveFilters && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {filters.minPrice && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                {t("public.minPrice")}: ৳{filters.minPrice}
+                <button
+                  onClick={() => setFilters({ ...filters, minPrice: "" })}
+                  className="ml-1 text-indigo-400 transition hover:text-indigo-600"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {filters.maxPrice && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                {t("public.maxPrice")}: ৳{filters.maxPrice}
+                <button
+                  onClick={() => setFilters({ ...filters, maxPrice: "" })}
+                  className="ml-1 text-indigo-400 transition hover:text-indigo-600"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {filters.gender !== "all" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                {t("public.gender")}: {t(`gender.${filters.gender}`)}
+                <button
+                  onClick={() => setFilters({ ...filters, gender: "all" })}
+                  className="ml-1 text-indigo-400 transition hover:text-indigo-600"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Listings */}
