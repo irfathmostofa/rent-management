@@ -47,7 +47,22 @@ export default function PublicShell({ children }) {
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
 
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} Rently · {t("public.footer")}
+        <div className="mx-auto max-w-6xl px-4">
+          <p>
+            © {new Date().getFullYear()} Rently · {t("public.footer")}
+          </p>
+          <p className="mt-2">
+            Developed by{" "}
+            <a
+              href="https://irfathchowdhuryjoy.web.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
+            >
+              Md. Irfath Chowdhury
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );

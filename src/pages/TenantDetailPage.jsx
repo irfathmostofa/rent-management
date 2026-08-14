@@ -270,6 +270,28 @@ export default function TenantDetailPage() {
     }
   };
 
+  // Helper function to get property name from lease
+  const getPropertyName = (lease) => {
+    // Try multiple possible paths where property name might be
+    if (lease.unit?.property?.name) {
+      return lease.unit.property.name;
+    }
+    if (lease.property?.name) {
+      return lease.property.name;
+    }
+    if (lease.property_name) {
+      return lease.property_name;
+    }
+    // If we have unit and property_id, try to find it in properties list
+    if (lease.unit?.property_id) {
+      const prop = (properties.data ?? []).find(
+        (p) => p.id === lease.unit.property_id,
+      );
+      if (prop) return prop.name;
+    }
+    return null;
+  };
+
   return (
     <div>
       <Link to={backTo} className="btn btn-ghost btn-sm mb-2">
@@ -399,34 +421,46 @@ export default function TenantDetailPage() {
                 body={t("tenantDetail.noActiveLeaseBody")}
               />
             )}
-            {activeLeases.map((l) => (
-              <div
-                key={l.id}
-                className="row-between"
-                style={{
-                  padding: "12px 20px",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                <div>
-                  <div className="bold">
-                    {l.unit?.unit_number}
-                    {l.seat ? ` · ${l.seat.seat_number}` : ""}
+            {activeLeases.map((l) => {
+              const propertyName = getPropertyName(l);
+              return (
+                <div
+                  key={l.id}
+                  className="row-between"
+                  style={{
+                    padding: "12px 20px",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  <div>
+                    <div className="bold">
+                      {propertyName && (
+                        <span style={{ color: "var(--primary)" }}>
+                          {propertyName}
+                        </span>
+                      )}
+                      {propertyName && " · "}
+                      {l.unit?.unit_number || "—"}
+                      {l.seat ? ` · ${l.seat.seat_number}` : ""}
+                      {!propertyName && !l.unit?.unit_number && (
+                        <span className="muted">(No unit assigned)</span>
+                      )}
+                    </div>
+                    <div className="small muted">
+                      {t("tenantDetail.rent")} {money(l.rent_amount)}/
+                      {t("tenantDetail.cycle")} · {t("tenantDetail.since")}{" "}
+                      {formatDate(l.start_date)}
+                      {l.end_date
+                        ? ` · ${t("tenantDetail.ends")} ${formatDate(l.end_date)}`
+                        : ""}
+                    </div>
                   </div>
-                  <div className="small muted">
-                    {t("tenantDetail.rent")} {money(l.rent_amount)}/
-                    {t("tenantDetail.cycle")} · {t("tenantDetail.since")}{" "}
-                    {formatDate(l.start_date)}
-                    {l.end_date
-                      ? ` · ${t("tenantDetail.ends")} ${formatDate(l.end_date)}`
-                      : ""}
-                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => endLease(l)}>
+                    {t("common.end")}
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => endLease(l)}>
-                  {t("common.end")}
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="card">
@@ -608,7 +642,9 @@ export default function TenantDetailPage() {
                 {tenantInvoices.map((i) => (
                   <tr key={i.id}>
                     <td className="mono">
-                      <Link to={`/admin/invoices/${i.id}`}>{i.invoice_number}</Link>
+                      <Link to={`/admin/invoices/${i.id}`}>
+                        {i.invoice_number}
+                      </Link>
                     </td>
                     <td className="small muted">
                       {i.period_start
@@ -1093,25 +1129,25 @@ export default function TenantDetailPage() {
                       <div className="tiny muted">{tpl.body}</div>
                     </button>
                   ))}
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 12px",
-                  }}
-                  onClick={() => pickTemplate(null)}
-                >
-                  <span className="bold small">
-                    {t("tenantDetail.customMessage")}
-                  </span>
-                  <div className="tiny muted">
-                    {t("tenantDetail.customMessageHint")}
-                  </div>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                    }}
+                    onClick={() => pickTemplate(null)}
+                  >
+                    <span className="bold small">
+                      {t("tenantDetail.customMessage")}
+                    </span>
+                    <div className="tiny muted">
+                      {t("tenantDetail.customMessageHint")}
+                    </div>
+                  </button>
+                </div>
               )}
             </>
           )}

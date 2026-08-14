@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { callRpc } from "../lib/supabase";
+import { callRpc, supabase } from "../lib/supabase";
 import { useTenants } from "../hooks/useTenants";
 import { usePropertyOptions } from "../hooks/useProperties";
 import { usePagination } from "../hooks/usePagination";
@@ -21,17 +21,56 @@ import {
   availableSeats,
 } from "../lib/availability";
 
+// Helper function to get property name from lease
+function getPropertyName(lease, propertiesData = []) {
+  // Try multiple paths
+  if (lease.unit?.property?.name) {
+    return lease.unit.property.name;
+  }
+  if (lease.property?.name) {
+    return lease.property.name;
+  }
+  if (lease.property_name) {
+    return lease.property_name;
+  }
+  // If we have unit with property_id, look it up in properties data
+  if (lease.unit?.property_id) {
+    const prop = propertiesData.find((p) => p.id === lease.unit.property_id);
+    if (prop) return prop.name;
+  }
+  return null;
+}
+
 // "Unit 5-A" for a whole-unit lease, "Room 3 · Seat 2" for a seated one.
 // A tenant can hold several active leases at once, so this returns the
 // full list (used both for the desktop table and mobile card).
-function activeLeaseLabels(tenant) {
+function activeLeaseLabels(tenant, propertiesData = []) {
   return (tenant.leases ?? [])
     .filter((l) => l.status === "active")
-    .map((l) =>
-      l.seat?.seat_number
-        ? `${l.unit?.unit_number ?? "—"} · ${l.seat.seat_number}`
-        : (l.unit?.unit_number ?? "—"),
-    );
+    .map((l) => {
+      const propertyName = getPropertyName(l, propertiesData);
+      const unitNumber = l.unit?.unit_number ?? "—";
+      const seatNumber = l.seat?.seat_number ? ` · ${l.seat.seat_number}` : "";
+
+      // If property name exists, show it with unit number
+      if (propertyName) {
+        return {
+          propertyName,
+          unitNumber,
+          seatNumber,
+          fullLabel: `${propertyName} · ${unitNumber}${seatNumber}`,
+          shortLabel: `${unitNumber}${seatNumber}`,
+        };
+      }
+      // Otherwise just show unit and seat
+      return {
+        propertyName: null,
+        unitNumber,
+        seatNumber,
+        fullLabel: `${unitNumber}${seatNumber}`,
+        shortLabel: `${unitNumber}${seatNumber}`,
+      };
+    });
 }
 
 export default function TenantsPage() {
@@ -111,9 +150,7 @@ export default function TenantsPage() {
         p_grace_days: Number(form.grace_days),
       });
       toast.success(
-        form.unit_id
-          ? t("tenants.createdWithLease")
-          : t("tenants.created"),
+        form.unit_id ? t("tenants.createdWithLease") : t("tenants.created"),
       );
       setOpen(false);
       refresh();
@@ -127,6 +164,19 @@ export default function TenantsPage() {
   const items = data ?? [];
   const { pageItems, page, setPage, totalPages, totalItems, pageSize } =
     usePagination(items, 20);
+
+  // Debug: Log the first tenant to see what data is available
+  useEffect(() => {
+    if (items.length > 0) {
+      console.log("Tenant data sample:", items[0]);
+      console.log("Leases:", items[0].leases);
+      if (items[0].leases && items[0].leases.length > 0) {
+        console.log("First lease:", items[0].leases[0]);
+        console.log("Unit:", items[0].leases[0].unit);
+        console.log("Property:", items[0].leases[0].unit?.property);
+      }
+    }
+  }, [items]);
 
   if (loading) return <Spinner />;
 
@@ -159,7 +209,10 @@ export default function TenantsPage() {
             </thead>
             <tbody>
               {pageItems.map((row) => {
-                const leaseLabels = activeLeaseLabels(row);
+                const leaseLabels = activeLeaseLabels(
+                  row,
+                  properties.data ?? [],
+                );
                 return (
                   <tr key={row.id}>
                     <td>
@@ -182,7 +235,9 @@ export default function TenantsPage() {
                       {row.phone || ""}
                     </td>
                     <td className="small">{row.tenant_type || "single"}</td>
-                    <td className="small muted">{row.occupation_type || "—"}</td>
+                    <td className="small muted">
+                      {row.occupation_type || "—"}
+                    </td>
                     <td>{formatDate(row.join_date)}</td>
                     <td>
                       {leaseLabels.length === 0 ? (
@@ -192,11 +247,40 @@ export default function TenantsPage() {
                           className="row"
                           style={{ flexWrap: "wrap", gap: 4 }}
                         >
-                          {leaseLabels.map((label, i) => (
-                            <span key={i} className="badge badge-indigo mono">
-                              {label}
-                            </span>
-                          ))}
+                          {leaseLabels.map((label, i) => {
+                            // If property name exists, show it with truncation
+                            if (label.propertyName) {
+                              return (
+                                <span
+                                  key={i}
+                                  className="badge badge-indigo"
+                                  style={{
+                                    fontSize: "11px",
+                                    maxWidth: "180px",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    display: "inline-block",
+                                  }}
+                                  title={label.fullLabel}
+                                >
+                                  {label.fullLabel.length > 25
+                                    ? `${label.fullLabel.substring(0, 25)}...`
+                                    : label.fullLabel}
+                                </span>
+                              );
+                            }
+                            // Otherwise just show unit number
+                            return (
+                              <span
+                                key={i}
+                                className="badge badge-indigo"
+                                style={{ fontSize: "11px" }}
+                              >
+                                {label.shortLabel}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </td>
@@ -233,7 +317,7 @@ export default function TenantsPage() {
 
       <div className="list">
         {pageItems.map((row) => {
-          const leaseLabels = activeLeaseLabels(row);
+          const leaseLabels = activeLeaseLabels(row, properties.data ?? []);
           return (
             <Link
               key={row.id}
@@ -247,18 +331,48 @@ export default function TenantsPage() {
               <div className="body">
                 <div className="l-title">{fullName(row)}</div>
                 <div className="l-sub">
-                  {row.email || t("tenants.noEmail")} · {row.tenant_type || "single"}
+                  {row.email || t("tenants.noEmail")} ·{" "}
+                  {row.tenant_type || "single"}
                   {row.occupation_type ? ` · ${row.occupation_type}` : ""}
                 </div>
                 <div className="l-meta">
                   {leaseLabels.length === 0 ? (
-                    <span className="badge badge-gray">{t("tenants.noActiveLease")}</span>
+                    <span className="badge badge-gray">
+                      {t("tenants.noActiveLease")}
+                    </span>
                   ) : (
-                    leaseLabels.map((label, i) => (
-                      <span key={i} className="badge badge-indigo mono">
-                        {label}
-                      </span>
-                    ))
+                    leaseLabels.map((label, i) => {
+                      if (label.propertyName) {
+                        return (
+                          <span
+                            key={i}
+                            className="badge badge-indigo"
+                            style={{
+                              fontSize: "11px",
+                              maxWidth: "150px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              display: "inline-block",
+                            }}
+                            title={label.fullLabel}
+                          >
+                            {label.fullLabel.length > 20
+                              ? `${label.fullLabel.substring(0, 20)}...`
+                              : label.fullLabel}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span
+                          key={i}
+                          className="badge badge-indigo"
+                          style={{ fontSize: "11px" }}
+                        >
+                          {label.shortLabel}
+                        </span>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -294,9 +408,16 @@ export default function TenantsPage() {
         />
       )}
 
-      <QuickAction onClick={() => setOpen(true)} label={t("tenants.newTenant")} />
+      <QuickAction
+        onClick={() => setOpen(true)}
+        label={t("tenants.newTenant")}
+      />
 
-      <Modal open={open} onClose={() => setOpen(false)} title={t("tenants.newTenant")}>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={t("tenants.newTenant")}
+      >
         <form onSubmit={create}>
           <div className="form-grid">
             <Field label={t("tenants.firstName")}>
@@ -358,7 +479,9 @@ export default function TenantsPage() {
               className="card card-pad mb-2"
               style={{ background: "var(--surface-2)" }}
             >
-              <div className="bold small mb-2">{t("tenants.studentDetails")}</div>
+              <div className="bold small mb-2">
+                {t("tenants.studentDetails")}
+              </div>
               <div className="form-grid">
                 <Field label={t("tenants.university")}>
                   <Input
@@ -449,7 +572,13 @@ export default function TenantsPage() {
 
           {form.property_id && (
             <>
-              <Field label={selectedKind === "cottage" ? t("tenants.room") : t("tenants.unit")}>
+              <Field
+                label={
+                  selectedKind === "cottage"
+                    ? t("tenants.room")
+                    : t("tenants.unit")
+                }
+              >
                 <Select
                   value={form.unit_id}
                   onChange={(e) =>
@@ -463,7 +592,10 @@ export default function TenantsPage() {
                 >
                   <option value="">
                     {t("tenants.selectUnit", {
-                      unit: selectedKind === "cottage" ? t("tenants.room") : t("tenants.unit"),
+                      unit:
+                        selectedKind === "cottage"
+                          ? t("tenants.room")
+                          : t("tenants.unit"),
                     })}
                   </option>
                   {units.map((u) => (
@@ -475,7 +607,10 @@ export default function TenantsPage() {
                 {units.length === 0 && (
                   <div className="hint">
                     {t("tenants.noAvailableUnits", {
-                      units: selectedKind === "cottage" ? t("tenants.rooms") : t("tenants.unitsPlural"),
+                      units:
+                        selectedKind === "cottage"
+                          ? t("tenants.rooms")
+                          : t("tenants.unitsPlural"),
                     })}
                   </div>
                 )}
@@ -486,7 +621,9 @@ export default function TenantsPage() {
                   hint={t("tenants.seatHint")}
                 >
                   <Select value={form.seat_id} onChange={set("seat_id")}>
-                    {wholeUnitAvailable && <option value="">{t("tenants.wholeRoom")}</option>}
+                    {wholeUnitAvailable && (
+                      <option value="">{t("tenants.wholeRoom")}</option>
+                    )}
                     {seats.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.seat_number}
